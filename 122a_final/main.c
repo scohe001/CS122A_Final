@@ -92,7 +92,7 @@ void Shift_Init() {
 void Shift_Tick() {
 	switch(shift_state) {
 		case SINIT:
-			transmit_data(shift1, shift2, debu1, debug2);
+			transmit_data(shift1, shift2, debug1, debug2);
 			break;
 	}
 	
@@ -224,6 +224,7 @@ enum MoveState {MOINIT, MWAIT, MMOVE, MPULLBACK, MCORRECT} move_state;
 Queue moves;
 double *curr, *target;
 unsigned char mcount = 0, sol = R_SOL, last_move = 0;
+unsigned char num_to_execute = 0;
 
 void Move_Init() {
 	move_state = MOINIT;
@@ -250,9 +251,9 @@ void Move_Tick() {
 			move_state = MWAIT;
 			break;
 		case MWAIT:
-			if(QueueIsEmpty(moves)) {move_state = MWAIT; break;}
+			if(!num_to_execute) {move_state = MWAIT; break;}
 			move_state = MMOVE;
-			last_move = QueueDequeue(moves);
+			last_move = QueueDequeue(moves); num_to_execute--;
 			if(last_move == R) { 
 				target_angle[1] += 90; dir[1] = 1; 
 				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
@@ -440,13 +441,61 @@ void Receive_Task() {
 	}
 }
 
+#define BUTBUS PINA
+#define BUTPIN 5
+enum ButState {BINIT, BWAIT, BPRESSED, BPWAIT} but_state;
+
+void But_Init() {
+	but_state = BINIT;
+}
+
+//If the button is pressed, execute all moves currently in the queue
+void But_Tick() {
+	switch(but_state) {
+		case BINIT:
+			break;
+		case BWAIT:
+			break;
+		case BPRESSED:
+			num_to_execute = moves->num_objects;
+			break;
+		case BPWAIT:
+			break;
+	}
+	
+	switch(but_state) {
+		case BINIT:
+			but_state = BWAIT;
+			break;
+		case BWAIT:
+			if(~BUTBUS & (1 << BUTPIN)) but_state = BPRESSED;
+			break;
+		case BPRESSED:
+			but_state = BPWAIT;
+			break;
+		case BPWAIT:
+			if(!(~BUTBUS & (1 << BUTPIN))) but_state = BWAIT;
+			break;
+	}
+}
+
+void But_Task() {
+	But_Init();
+	for(;;) {
+		But_Tick();
+		vTaskDelay(50);
+	}
+}
+
 void StartSecPulse(unsigned portBASE_TYPE Priority) {
 	xTaskCreate(Motor_Task, (signed portCHAR *)"Motorer", configMINIMAL_STACK_SIZE, NULL, Priority, NULL);
 	xTaskCreate(Move_Task, (signed portCHAR *)"Mover", configMINIMAL_STACK_SIZE, NULL, Priority, NULL);
 	xTaskCreate(Shift_Task, (signed portCHAR *)"Shifter", configMINIMAL_STACK_SIZE, NULL, Priority, NULL);
 	xTaskCreate(Joy_Task, (signed portCHAR *)"JoySticker", configMINIMAL_STACK_SIZE, NULL, Priority, NULL);
 	xTaskCreate(Receive_Task, (signed portCHAR *)"Receiver", configMINIMAL_STACK_SIZE, NULL, Priority, NULL);
+	xTaskCreate(But_Task, (signed portCHAR *)"Buttoner", configMINIMAL_STACK_SIZE, NULL, Priority, NULL);
 }
+
 
 
 int main(void)
