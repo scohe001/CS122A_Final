@@ -194,21 +194,22 @@ void Motor_Task() {
 }
 
 #define SOL_BUS PORTC
-#define LR_SOL 7
-#define UD_SOL 6
+#define L_SOL 7
+#define R_SOL 7
+#define F_SOL 7
+#define B_SOL 6
 
 enum Moves {R, Rp, R2, L, Lp, L2, F, Fp, F2, B, Bp, B2}; //Everything but up and down
 enum MoveState {MOINIT, MWAIT, MMOVE, MPULLBACK, MCORRECT} move_state;
 Queue moves;
 double *curr, *target;
-unsigned char mcount = 0, sol = LR_SOL, last_move = 0;
+unsigned char mcount = 0, sol = R_SOL, last_move = 0;
 
 void Move_Init() {
 	move_state = MOINIT;
 }
 
 void Move_Tick() {
-	//PORTD = QueueIsEmpty(moves);
 	switch(move_state) {
 		case MOINIT:
 			break;
@@ -230,26 +231,35 @@ void Move_Tick() {
 			break;
 		case MWAIT:
 			if(QueueIsEmpty(moves)) {move_state = MWAIT; break;}
-			//PORTD |= 0x0F;
 			move_state = MMOVE;
 			last_move = QueueDequeue(moves);
 			if(last_move == R) { 
 				target_angle[1] += 90; dir[1] = 1; 
-				target = &target_angle[1], curr = &curr_angle[1], sol = LR_SOL;
-			} else if(last_move == Rp){ 
-				target_angle[1] -= 90; dir[1] = 0; 
-				target = &target_angle[1], curr = &curr_angle[1], sol = LR_SOL;
+				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
+			} else if(last_move == Rp){
+				target_angle[1] -= 90; dir[1] = 0;
+				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
+			} else if(last_move == R2){
+				target_angle[1] += 180; dir[1] = 1;
+				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
 			} else if(last_move == L) {
 				target_angle[0] += 90; dir[0] = 1;
-				target = &target_angle[0], curr = &curr_angle[0], sol = LR_SOL;
+				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
 			} else if(last_move == Lp){
 				target_angle[0] -= 90; dir[0] = 0;
-				target = &target_angle[0], curr = &curr_angle[0], sol = LR_SOL;
+				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
+			}  else if(last_move == L2){
+				target_angle[0] += 180; dir[0] = 1;
+				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
 			}
 			
 			break;
 		case MMOVE:
-			if(*target == *curr) { move_state = MPULLBACK; mcount = 0; }
+			if(*target == *curr) { 
+				//If we do a double turn, no need to engage the solenoid to correct the stepper
+				if(last_move == R2 || last_move == L2 || last_move == F2 || last_move == B2) move_state = MWAIT;
+				else { move_state = MPULLBACK; mcount = 0; }
+			}
 			break;
 		case MPULLBACK:
 			if(mcount++ > 50) {
@@ -257,16 +267,16 @@ void Move_Tick() {
 				//Do the reverse to put things back in order
 				if(last_move == R) {
 					target_angle[1] -= 90; dir[1] = 0;
-					target = &target_angle[1], curr = &curr_angle[1], sol = LR_SOL;
+					target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
 				} else if(last_move == Rp){
 					target_angle[1] += 90; dir[1] = 1;
-					target = &target_angle[1], curr = &curr_angle[1], sol = LR_SOL;
+					target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
 				} else if(last_move == L) {
 					target_angle[0] -= 90; dir[0] = 0;
-					target = &target_angle[0], curr = &curr_angle[0], sol = LR_SOL;
+					target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
 				} else if(last_move == Lp){
 					target_angle[0] += 90; dir[0] = 1;
-					target = &target_angle[0], curr = &curr_angle[0], sol = LR_SOL;
+					target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
 				}				
 			}
 			break;
@@ -315,8 +325,8 @@ void Joy_Tick() {
 			else {
 				if(joyPos == Right) { PORTD |= 0x00; QueueEnqueue(moves, R); } //target_angle[1] += 90, dir[1] = 1;
 				else if(joyPos == Left) QueueEnqueue(moves, Rp); //target_angle[1] -= 90, dir[1] = 0;
-				else if(joyPos == Down) QueueEnqueue(moves, L);
-				else if(joyPos == Up) QueueEnqueue(moves, Lp);
+				else if(joyPos == Down) QueueEnqueue(moves, R2);
+				else if(joyPos == Up) QueueEnqueue(moves, R2);
 				joy_state = JPUSHED;
 			}
 			break;
