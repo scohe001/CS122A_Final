@@ -81,6 +81,9 @@ void transmit_data(unsigned char data1, unsigned char data2, unsigned char data3
 //Control the motors every tick
 enum ShiftState {SINIT} shift_state;
 unsigned char shift1 = 0;
+unsigned char shift2 = 0;
+unsigned char debug1 = 0; //Not using the last two shift registers, so hook them up to
+unsigned char debug2 = 0; //An LED Strip and use them for debugging
 
 void Shift_Init() {
 	shift_state = SINIT;
@@ -89,7 +92,7 @@ void Shift_Init() {
 void Shift_Tick() {
 	switch(shift_state) {
 		case SINIT:
-			transmit_data(0, 0, 0, shift1);
+			transmit_data(shift1, shift2, debu1, debug2);
 			break;
 	}
 	
@@ -111,31 +114,49 @@ void Shift_Task() {
 	}
 }
 
+//LEFT
 #define MOTOR1PORT shift1
 #define MOTOR1A 7
 #define MOTOR1B 6
 #define MOTOR1C 5
 #define MOTOR1D 4
 
+//RIGHT
 #define MOTOR2PORT shift1
 #define MOTOR2A 3
 #define MOTOR2B 2
 #define MOTOR2C 1
 #define MOTOR2D 0
 
-#define NUM_MOTORS 2
+//FRONT
+#define MOTOR3PORT shift2
+#define MOTOR3A 3
+#define MOTOR3B 2
+#define MOTOR3C 1
+#define MOTOR3D 0
+
+//BACK
+#define MOTOR4PORT shift2
+#define MOTOR4A 7
+#define MOTOR4B 6
+#define MOTOR4C 5
+#define MOTOR4D 4
+
+#define NUM_MOTORS 4
 
 enum MotorState {MINIT, MTURN} motor_state;
-unsigned char *ports[NUM_MOTORS] = {&MOTOR1PORT, &MOTOR2PORT};
-unsigned char dir[NUM_MOTORS] = {1, 1}; //1 for forward, 0 for backward
+unsigned char *ports[NUM_MOTORS] = {&MOTOR1PORT, &MOTOR2PORT, &MOTOR3PORT, &MOTOR4PORT};
+unsigned char dir[NUM_MOTORS] = {1, 1, 1, 1}; //1 for forward, 0 for backward
 double target_angle[NUM_MOTORS] = {0};
 double curr_angle[NUM_MOTORS] = {0};
-unsigned char cnt[NUM_MOTORS] = {1, 1};
+unsigned char cnt[NUM_MOTORS] = {1, 1, 1, 1};
 
 #define PHASE .703125
 
 unsigned char pins[][4] = {{MOTOR1A, MOTOR1B, MOTOR1C, MOTOR1D},
-									{MOTOR2A, MOTOR2B, MOTOR2C, MOTOR2D}};
+									{MOTOR2A, MOTOR2B, MOTOR2C, MOTOR2D},
+									{MOTOR3A, MOTOR3B, MOTOR3C, MOTOR3D},
+									{MOTOR4A, MOTOR4B, MOTOR4C, MOTOR4D},};
 unsigned char pin_order[8][4] = {{1, 0, 0, 0},
 								{1, 1, 0, 0},
 								{0, 1, 0, 0},
@@ -152,7 +173,6 @@ void Motor_Init() {
 void Motor_Tick() {
 	switch(motor_state) {
 		case MINIT:
-			PORTB = 0x00;
 			break;
 		case MTURN:
 			for(unsigned char x = 0; x < NUM_MOTORS; x++) {
@@ -193,11 +213,11 @@ void Motor_Task() {
 	}
 }
 
-#define SOL_BUS PORTC
+#define SOL_BUS PORTD
 #define L_SOL 7
-#define R_SOL 7
-#define F_SOL 7
-#define B_SOL 6
+#define R_SOL 6
+#define F_SOL 5
+#define B_SOL 4
 
 enum Moves {R, Rp, R2, L, Lp, L2, F, Fp, F2, B, Bp, B2}; //Everything but up and down
 enum MoveState {MOINIT, MWAIT, MMOVE, MPULLBACK, MCORRECT} move_state;
@@ -251,6 +271,24 @@ void Move_Tick() {
 			}  else if(last_move == L2){
 				target_angle[0] += 180; dir[0] = 1;
 				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
+			} else if(last_move == F) {
+				target_angle[2] += 90; dir[2] = 1;
+				target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+			} else if(last_move == Fp){
+				target_angle[2] -= 90; dir[2] = 0;
+				target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+			}  else if(last_move == F2){
+				target_angle[2] += 180; dir[2] = 1;
+				target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+			}  else if(last_move == B) {
+				target_angle[3] += 90; dir[3] = 1;
+				target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL;
+			} else if(last_move == Bp){
+				target_angle[3] -= 90; dir[3] = 0;
+				target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL;
+			}  else if(last_move == B2){
+				target_angle[3] += 180; dir[3] = 1;
+				target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL;
 			}
 			
 			break;
@@ -277,7 +315,19 @@ void Move_Tick() {
 				} else if(last_move == Lp){
 					target_angle[0] += 90; dir[0] = 1;
 					target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
-				}				
+				} else if(last_move == F) {
+					target_angle[2] -= 90; dir[2] = 0;
+					target= &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+				} else if(last_move == Fp){
+					target_angle[2] += 90; dir[2] = 1;
+					target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+				} else if(last_move == B) {
+					target_angle[3] -= 90; dir[3] = 0;
+					target =&target_angle[3], curr = &curr_angle[3], sol = B_SOL;
+				} else if(last_move == Bp){
+					target_angle[3] += 90; dir[3] = 1;
+					target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL;
+			}		
 			}
 			break;
 		case MCORRECT:
@@ -323,10 +373,10 @@ void Joy_Tick() {
 			//PORTD = joyPos;
 			if(joyPos == None) joy_state = JWAIT;
 			else {
-				if(joyPos == Right) { PORTD |= 0x00; QueueEnqueue(moves, R); } //target_angle[1] += 90, dir[1] = 1;
-				else if(joyPos == Left) QueueEnqueue(moves, Rp); //target_angle[1] -= 90, dir[1] = 0;
-				else if(joyPos == Down) QueueEnqueue(moves, R2);
-				else if(joyPos == Up) QueueEnqueue(moves, R2);
+				if(joyPos == Right) { PORTD |= 0x00; QueueEnqueue(moves, B); } //target_angle[1] += 90, dir[1] = 1;
+				else if(joyPos == Left) QueueEnqueue(moves, Bp); //target_angle[1] -= 90, dir[1] = 0;
+				else if(joyPos == Down) QueueEnqueue(moves, B2);
+				else if(joyPos == Up) QueueEnqueue(moves, B2);
 				joy_state = JPUSHED;
 			}
 			break;
@@ -402,7 +452,6 @@ void StartSecPulse(unsigned portBASE_TYPE Priority) {
 int main(void)
 {
 	DDRA = 0x00; PORTA = 0xFF;
-	//DDRB = 0xFF; PORTB = 0x00;
 	DDRC = 0xFF; PORTC = 0x00;
 	DDRD = 0xFF; PORTD = 0x00;
 	
