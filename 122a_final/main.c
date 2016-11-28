@@ -82,8 +82,8 @@ void transmit_data(unsigned char data1, unsigned char data2, unsigned char data3
 enum ShiftState {SINIT} shift_state;
 unsigned char shift1 = 0;
 unsigned char shift2 = 0;
-unsigned char debug1 = 0; //Not using the last two shift registers, so hook them up to
-unsigned char debug2 = 0; //An LED Strip and use them for debugging
+unsigned char sols = 0x55; //Start the solenoids all extended
+unsigned char debug = 0; //Not using the last shift register, so hook em up to An LED Strip and use em for debugging
 
 void Shift_Init() {
 	shift_state = SINIT;
@@ -92,7 +92,7 @@ void Shift_Init() {
 void Shift_Tick() {
 	switch(shift_state) {
 		case SINIT:
-			transmit_data(shift1, shift2, debug1, debug2);
+			transmit_data(shift1, shift2, sols, debug);
 			break;
 	}
 	
@@ -213,17 +213,21 @@ void Motor_Task() {
 	}
 }
 
-#define SOL_BUS PORTD
-#define L_SOL 7
-#define R_SOL 6
-#define F_SOL 5
-#define B_SOL 4
+#define SOL_BUS sols
+#define L_SOL1 0
+#define L_SOL2 1
+#define R_SOL1 2
+#define R_SOL2 3
+#define F_SOL1 4
+#define F_SOL2 5
+#define B_SOL1 6
+#define B_SOL2 7
 
 enum Moves {R, Rp, R2, L, Lp, L2, F, Fp, F2, B, Bp, B2}; //Everything but up and down
 enum MoveState {MOINIT, MWAIT, MMOVE, MPULLBACK, MCORRECT} move_state;
 Queue moves;
 double *curr, *target;
-unsigned char mcount = 0, sol = R_SOL, last_move = 0;
+unsigned char mcount = 0, sol = R_SOL1, last_move = 0;
 unsigned char num_to_execute = 0;
 
 void Move_Init() {
@@ -236,11 +240,13 @@ void Move_Tick() {
 			break;
 		case MWAIT:
 			SOL_BUS &= ~(1 << sol);
+			SOL_BUS |= (1 << (sol + 1));
 			break;
 		case MMOVE:
 			break;
 		case MPULLBACK:
 			SOL_BUS |= (1 << sol);
+			SOL_BUS &= ~(1 << (sol + 1));
 			break;
 		case MCORRECT:
 			break;
@@ -256,40 +262,40 @@ void Move_Tick() {
 			last_move = QueueDequeue(moves); num_to_execute--;
 			if(last_move == R) { 
 				target_angle[1] += 90; dir[1] = 1; 
-				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
+				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL1;
 			} else if(last_move == Rp){
 				target_angle[1] -= 90; dir[1] = 0;
-				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
+				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL1;
 			} else if(last_move == R2){
 				target_angle[1] += 180; dir[1] = 1;
-				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
+				target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL1;
 			} else if(last_move == L) {
 				target_angle[0] += 90; dir[0] = 1;
-				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
+				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL1;
 			} else if(last_move == Lp){
 				target_angle[0] -= 90; dir[0] = 0;
-				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
+				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL1;
 			}  else if(last_move == L2){
 				target_angle[0] += 180; dir[0] = 1;
-				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
+				target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL1;
 			} else if(last_move == F) {
 				target_angle[2] += 90; dir[2] = 1;
-				target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+				target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL1;
 			} else if(last_move == Fp){
 				target_angle[2] -= 90; dir[2] = 0;
-				target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+				target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL1;
 			}  else if(last_move == F2){
 				target_angle[2] += 180; dir[2] = 1;
-				target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+				target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL1;
 			}  else if(last_move == B) {
 				target_angle[3] += 90; dir[3] = 1;
-				target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL;
+				target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL1;
 			} else if(last_move == Bp){
 				target_angle[3] -= 90; dir[3] = 0;
-				target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL;
+				target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL1;
 			}  else if(last_move == B2){
 				target_angle[3] += 180; dir[3] = 1;
-				target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL;
+				target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL1;
 			}
 			
 			break;
@@ -306,29 +312,29 @@ void Move_Tick() {
 				//Do the reverse to put things back in order
 				if(last_move == R) {
 					target_angle[1] -= 90; dir[1] = 0;
-					target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
+					target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL1;
 				} else if(last_move == Rp){
 					target_angle[1] += 90; dir[1] = 1;
-					target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL;
+					target = &target_angle[1], curr = &curr_angle[1], sol = R_SOL1;
 				} else if(last_move == L) {
 					target_angle[0] -= 90; dir[0] = 0;
-					target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
+					target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL1;
 				} else if(last_move == Lp){
 					target_angle[0] += 90; dir[0] = 1;
-					target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL;
+					target = &target_angle[0], curr = &curr_angle[0], sol = L_SOL1;
 				} else if(last_move == F) {
 					target_angle[2] -= 90; dir[2] = 0;
-					target= &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+					target= &target_angle[2], curr = &curr_angle[2], sol = F_SOL1;
 				} else if(last_move == Fp){
 					target_angle[2] += 90; dir[2] = 1;
-					target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL;
+					target = &target_angle[2], curr = &curr_angle[2], sol = F_SOL1;
 				} else if(last_move == B) {
 					target_angle[3] -= 90; dir[3] = 0;
-					target =&target_angle[3], curr = &curr_angle[3], sol = B_SOL;
+					target =&target_angle[3], curr = &curr_angle[3], sol = B_SOL1;
 				} else if(last_move == Bp){
 					target_angle[3] += 90; dir[3] = 1;
-					target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL;
-			}		
+					target = &target_angle[3], curr = &curr_angle[3], sol = B_SOL1;
+				}
 			}
 			break;
 		case MCORRECT:
@@ -374,10 +380,10 @@ void Joy_Tick() {
 			//PORTD = joyPos;
 			if(joyPos == None) joy_state = JWAIT;
 			else {
-				if(joyPos == Right) { PORTD |= 0x00; QueueEnqueue(moves, B); } //target_angle[1] += 90, dir[1] = 1;
-				else if(joyPos == Left) QueueEnqueue(moves, Bp); //target_angle[1] -= 90, dir[1] = 0;
-				else if(joyPos == Down) QueueEnqueue(moves, B2);
-				else if(joyPos == Up) QueueEnqueue(moves, B2);
+				if(joyPos == Right) { PORTD |= 0x00; QueueEnqueue(moves, R); } //target_angle[1] += 90, dir[1] = 1;
+				else if(joyPos == Left) QueueEnqueue(moves, Rp); //target_angle[1] -= 90, dir[1] = 0;
+				else if(joyPos == Down) QueueEnqueue(moves, R2);
+				else if(joyPos == Up) QueueEnqueue(moves, R2);
 				joy_state = JPUSHED;
 			}
 			break;
@@ -510,4 +516,5 @@ int main(void)
 	joystickInit();
 	StartSecPulse(1);
 	vTaskStartScheduler();
+	
 }
