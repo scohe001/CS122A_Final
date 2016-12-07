@@ -1,0 +1,191 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% University Assignment Title Page 
+% LaTeX Template
+% Version 1.0 (27/12/12)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% WikiBooks (http://en.wikibooks.org/wiki/LaTeX/Title_Creation)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+% 
+% Instructions for using this template:
+% This title page is capable of being compiled as is. This is not useful for 
+% including it in another document. To do this, you have two options: 
+%
+% 1) Copy/paste everything between \begin{document} and \end{document} 
+% starting at \begin{titlepage} and paste this into another LaTeX file where you 
+% want your title page.
+% OR
+% 2) Remove everything outside the \begin{titlepage} and \end{titlepage} and 
+% move this file to the same directory as the LaTeX file you wish to add it to. 
+% Then add \input{./title_page_1.tex} to your LaTeX file where you want your
+% title page.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\title{Title page with logo}
+%----------------------------------------------------------------------------------------
+%   PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[12pt]{article}
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage{hyperref}
+\usepackage{titlesec}
+
+\begin{document}
+
+\begin{titlepage}
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}} % Defines a new command for the horizontal lines, change thickness here
+
+\center % Center everything on the page
+ 
+%----------------------------------------------------------------------------------------
+%   HEADING SECTIONS
+%----------------------------------------------------------------------------------------
+
+\textsc{\LARGE University California Riverside}\\[1.5cm] % Name of your university/college
+\textsc{\Large CS122A Final Project}\\[0.5cm] % Major heading such as course name
+\textsc{\large Fall 2016}\\[0.5cm] % Minor heading such as course title
+
+%----------------------------------------------------------------------------------------
+%   TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\HRule \\[0.4cm]
+{ \huge \bfseries Cube Solver}\\[0.4cm] % Title of your document
+\HRule \\[1.5cm]
+ 
+%----------------------------------------------------------------------------------------
+%   AUTHOR SECTION
+%----------------------------------------------------------------------------------------
+
+\begin{minipage}{0.4\textwidth}
+\begin{flushleft} \large
+\emph{Author:}\\
+Stanley \textsc{Cohen} % Your name
+\end{flushleft}
+\end{minipage}
+~
+\begin{minipage}{0.4\textwidth}
+\begin{flushright} \large
+\emph{Professor:} \\
+Jeffery \textsc{McDaniels} % Supervisor's Name
+\end{flushright}
+\end{minipage}\\[2cm]
+
+% If you don't want a supervisor, uncomment the two lines below and remove the section above
+%\Large \emph{Author:}\\
+%John \textsc{Smith}\\[3cm] % Your name
+
+%----------------------------------------------------------------------------------------
+%   DATE SECTION
+%----------------------------------------------------------------------------------------
+
+{\large \today}\\[2cm] % Date, change the \today to a set date if you want to be precise
+
+%----------------------------------------------------------------------------------------
+%   LOGO SECTION
+%----------------------------------------------------------------------------------------
+\includegraphics[scale=.5]{logo.png}\\[1cm] % Include a department/university logo - this will require the graphicx package
+%----------------------------------------------------------------------------------------
+
+\vfill % Fill the rest of the page with whitespace
+
+\end{titlepage}
+
+
+\begin{abstract}
+The Cube Solver is a Rubik’s Cube solver that uses a Raspberry Pi and OpenCV for reading in a cube. The solution is then found using Kociemba’s algorithm and passed over to an Atmega1284 to solve the cube for the lazy layman.
+\end{abstract}
+
+\section{User Guide}
+
+Turn on the Atmega1284 and ensure that the SPI lines are connected to the Raspberry Pi. Launch the $cube\_reader.py$ Python script on the Pi. Show the camera the sides of the cube listed in the terminal and press enter to lock in a side. Once all sides have been entered, type “done.” Place the cube into the arms of the solver and press the button on the breadboard to begin running the solution! 
+
+\section{Technologies and Components}
+
+\begin{itemize}
+	\item AVR Studio 6
+	\item Atmega1284
+	\item 8 Car Grade Solenoids
+	\item 4 Stepper motors
+	\item 8 Relays (to form H-Bridges for the solenoids)
+	\item Raspberry Pi
+	\item Pi Camera
+	\item OpenCV
+\end{itemize}
+
+\section{Demo Video}
+
+Demo video can be found \href{https://youtu.be/lqFNS5mc-u4}{here}.
+
+\section{Source Code}
+\label{sec:code}
+
+\subsection{Raspberry Pi}
+
+\subsubsection{cube\_reader.py}
+
+This script is used to read the cube via the Pi Cam with the help of OpenCV and then convert the 6x3x3 array of cubies into a cube string to be passed to Kociemba’s algorithm. It will then convert the returned solution into a set of moves that can be executed on my machine (only L, R, F, B moves) and pass the moves over SPI to the Atmega.
+
+\subsubsection{myspi.cpp}
+
+This C++ code will send whatever value it's passed over the Raspberry Pi's SPI. The majority of the code is from MontaVista Software. I modified their template to fit my purpose.
+
+\subsection{Atmega1284}
+
+\subsubsection{queue.h}
+
+Used to store the set of moves we need to execute. Allows us to receive multiple moves and hold them until a button is pressed so the user can have time to place the cube into the machine.
+
+\subsubsection{joystick.h}
+
+Used for debugging to put moves into the queue so the Raspberry Pi does not need to be on and hooked up at all times to test everything. 
+
+\subsubsection{main.c}
+
+Listen for moves sent over SPI and add them to the move queue. Control the 4 stepper motors over 2 shift registers. Control the 8 solenoids to pull back the correct arm after executing a move. Execute all moves in the move queue on button press.
+
+\section{Wiring}
+
+\begin{center}
+  \begin{tabular}{ | l | c | c | }
+    \hline
+    Wire & Atmega & Pi \\ \hline
+    SPI MOSI & PB5 & PIN19 \\ 
+    SPI MISO & PB6 & PIN21 \\ 
+    SPI CLK & PB7 & PIN23  \\ 
+    GND & GND & PIN25 \\ \hline
+    SHIFT1 RCLK & PC1 & - \\
+    SHIFT1 SRCLK & PC2 & - \\
+    SHIFT1 SRCLR & PC3 & - \\
+    SHIFT1 SER & PC0 & - \\ \hline
+    SHIFT2 RCLK & PC1 & - \\
+    SHIFT2 SRCLK & PC2 & - \\
+    SHIFT2 SRCLR & PC3 & - \\
+    SHIFT2 SER & PC4 & - \\ \hline
+    MOTOR1 & SHIFT1[3:0] & - \\ 
+    MOTOR2 & SHIFT1[7:4] & - \\ 
+    MOTOR3 & SHIFT2[3:0] & - \\
+    MOTOR4 & SHIFT2[7:4] & - \\ \hline
+    SOLENOID1 H-BRIDGE & PD[1:0] & - \\
+    SOLENOID2 H-BRIDGE & PD[3:2] & - \\
+    SOLENOID3 H-BRIDGE & PD[5:4] & - \\
+    SOLENOID4 H-BRIDGE & PD[7:6] & - \\ \hline
+    BUTTON & PA5 & - \\ \hline
+    JOYSTICK & PA[1:0] & - \\ \hline
+
+    \hline
+  \end{tabular}
+\end{center}
+
+\end{document}
